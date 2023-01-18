@@ -23,6 +23,7 @@ def count_numnber_of_each_label():
                 lst = [int(x.split(" ")[0]) for x in f.readlines()]
                 for n in lst:
                     res[n] += 1
+
     print('0(left):{} \n1(right):{} \n2(stop):{} \n3(crosswalk):{} \n4(uturn):{} \n5(traffic_light):{} \n6(ignore):{}'.
           format(res[0],res[1],res[2],res[3],res[4],res[5], res[6]))
     return res
