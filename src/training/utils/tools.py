@@ -6,9 +6,6 @@ from collections import defaultdict
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-
-
 def count_numnber_of_each_label():
     """ Returns an integer list of the number of labelled boxes of each class.
     The length of the list is 7 in order to the number of class is 7.
@@ -54,5 +51,3 @@ def drawBox(img):
     plt.show()
 
 
-if __name__ == '__main__':
-    count_numnber_of_each_label()
