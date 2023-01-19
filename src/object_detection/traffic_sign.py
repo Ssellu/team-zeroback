@@ -8,47 +8,44 @@ class TrafficLight():
         self.v = None
 
     def is_green(self, path: str, xywh: np.ndarray) -> bool:
-        print('!!!is_green')
-        image, *opencv_xywh = self.crop_image_(path, xywh)
-        return bool(self.get_circles_(image, opencv_xywh)[2])
-
-    def get_circles_(self, image, opencv_xywh):
-        three_circles = [False, False, False]
+        image, opencv_xywh = self.crop_image_blurred(path, xywh)
 
         _, _, v = self._get_hsv_(image)
-        cimg = cv2.GaussianBlur(image, (5, 5), 0)
-
-        print(image.type() == cv2.CV_8UC1)
-        print((image.isMat() or image.isUMat()))
-        #scimg = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-
+        print(v)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         circles = cv2.HoughCircles(
-            image, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=25, minRadius=0, maxRadius=30)
-        circles = np.uint16(np.around(circles))
-        circle = circles[0, -1]
-        cv2.circle(image, (circle[0], circle[1]), circle[2], (0, 255, 0), 2)
+            image, cv2.HOUGH_GRADIENT, 1, 20, param1=25, param2=25, minRadius=0, maxRadius=30)
+        # Exception
+        if circles is None:
+            raise AssertionError('The traffic light exists but it\'s ignorable.')
 
-        cr_img = v[circle[1]-10: circle[1]+10, circle[0]+10]
-        img_str = 'x : {}, y : {}, mean : {}'.format(circle[0], circle[1], cr_img.mean())
-        print(img_str)
+
+        circles = np.uint16(np.around(circles))
+
+        print("!!! len(circles) : {}".format(len(circles)))
+        print("!!! len(circles[0, :]) : {}".format(len(circles[0, :])))
         for circle in circles[0, :]:
             # [center_x, center_y, radius]
-            cv2.circle(cimg, (circle[0], circle[1]), circle[2], (0, 255, 0), 2)
-            cv2.circle(cimg, (circle[0], circle[1]), 2, (0, 0, 255), 3)
+            cv2.circle(image, (circle[0], circle[1]), circle[2], (0, 255, 0), 2)
+            cv2.circle(image, (circle[0], circle[1]), 2, (0, 0, 255), 3)
 
-            cr_img = v[circle[1]-10: circle[1]+10, circle[0]+10]
-            img_str = 'x : {}, y : {}, mean : {}'.format(
-                circle[0], circle[1], cr_img.mean())
-            print(img_str)
+            print("!!! radius : {}".format(circle[2]))
+            cr_img = v[circle[1]-circle[2] : circle[1]+circle[2],
+                       circle[0]-circle[2] : circle[0]+circle[2]]
+
+            # opencv_xywh[3] : total height of cropped image
+            print("!!! opencv_xywh : {}".format(opencv_xywh))
+            if cr_img.mean() > 200 and circle[1] > opencv_xywh[3] * 0.666:
+                return True
 
         if self.is_debug:
-            cv2.imshow('circles', cimg)
+            cv2.imshow('circles', image)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-        return three_circles
+        return False
 
-    def crop_image_(self, path, xywh):
+    def crop_image_blurred(self, path, xywh):
         # for detect circles
         min_x, min_y, width, height = xywh
 
@@ -61,6 +58,7 @@ class TrafficLight():
         start_y = min_y_480 - height_480//2
 
         image = cv2.imread(path)[start_y:start_y+height_480, start_x:start_x+width_640]
+        image = cv2.GaussianBlur(image, (5, 5), 0)
         return image, (start_x, start_y, width_640, height_480)
 
     def _get_hsv_(self, image):
@@ -76,10 +74,8 @@ class TrafficLight():
 if __name__ == '__main__':
 
     # Test Case 1
-    ts = np.array([0.701784, 0.383495, 0.063545, 0.130097])
+    ts = np.array([0.201784, 0.274947, 0.198439, 0.481953])
 
-    # Test Case 2
-    # ts = np.array([0.963768, 0.355340, 0.065775, 0.217476])
 
     tl = TrafficLight(is_debug=True)
-    print(tl.is_green(path='dataset/image_sets/img (3).png', xywh=ts))
+    print('result : {}'.format(tl.is_green(path='dataset/image_sets/img (141).png', xywh=ts)))
