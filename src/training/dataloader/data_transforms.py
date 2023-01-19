@@ -1,259 +1,278 @@
-from PIL import Image
 import numpy as np
 import cv2
 import torch
 from torchvision import transforms as tf
 
+#  pip install imgaug
 import imgaug as ia
 from imgaug import augmenters as iaa
 from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 
-# from utils.tools import xywh2xyxy_np
+from util.tools import minmax2cxcy, xywh2xyxy_np
 
-
-def get_transformations(cfg_param=None, is_train=None):
+def get_transformations(cfg_param = None, is_train = None):
     if is_train:
-        # Make augmentated images into a bunch
         data_transform = tf.Compose([AbsoluteLabels(),
+                                     FlipAug_tstl(),
                                      DefaultAug(),
                                      RelativeLabels(),
-                                     ResizeImage(
-                                         new_size=(cfg_param['width'], cfg_param['height'])),
-                                     ToTensor(),
-                                     ])
-    else:
+                                     ResizeImage(new_size = (cfg_param['in_width'], cfg_param['in_height'])),
+                                     ToTensor(),])
+    elif not is_train:
         data_transform = tf.Compose([AbsoluteLabels(),
                                      RelativeLabels(),
-                                     ToTensor(),])
-
+                                     ResizeImage(new_size = (cfg_param['in_width'], cfg_param['in_height'])),
+                                     ToTensor(),]) 
     return data_transform
 
+class Compose(object):
+    """Composes several transforms together.
+    Args:
+        transforms (list of ``Transform`` objects): list of transforms to compose.
+    """
+    def __init__(self, transforms=[]):
+        self.transforms = transforms
 
-# Convert normalized values in bounding boxes to absolute value
-class AbsoluteLabels(object):
-    def __init__(self) -> None:
-        pass
+    def __call__(self, img):
+        for t in self.transforms:
+            img = t(img)
+        return img
 
-    def __call__(self, data):
-        image, label = data
-        h, w, _ = image.shape
-        label[:, [1, 3]] *= w  # cx * w
-        label[:, [2, 4]] *= h  # cy * h
-        return image, label
-
-# Convert normalized values in bounding boxes to relative value
-
-
-class RelativeLabels(object):
-
-    def __init__(self) -> None:
-        pass
-
-    def __call__(self, data):
-        image, label = data
-        h, w, _ = image.shape
-        label[:, [1, 3]] /= w  # cx / w
-        label[:, [2, 4]] /= h  # cy / h
-        return image, label
-
-
-# Augmentation Template class
-class ImageAug(object):
-    def __init__(self, augmentations=[]) -> None:
-        self.augmentations = augmentations
-
-    def __call__(self, data):
-        # Unpack data
-        img, labels = data
-
-        # Convert xywh -> xyxy (minx, miny, maxx, maxy)
-        boxes = np.array(labels)
-        boxes[:, 1:] = xywh2xyxy_np(boxes[:, 1:])
-
-        # Convert bounding box to imgaug format
-        bounding_boxes = BoundingBoxesOnImage(
-            [BoundingBox(*box[1:], label=box[0]) for box in boxes],
-            shape=img.shape
-        )
-
-        # Apply augmentations
-        img, bounding_boxes = self.augmentations(image=img,
-                                                 bounding_boxes=bounding_boxes)
-
-        bounding_boxes = bounding_boxes.clip_out_of_image()
-
-        # Convert bounding box to np.ndarray
-        boxes = np.zeros((len(bounding_boxes), 5))
-
-        for box_idx, box in enumerate(bounding_boxes):
-            x1, y1, x2, y2 = box.x1, box.x2, box.y1, box.y2
-
-            # Reshape back to [x,y,w,h]
-            boxes[box_idx, 0] = box.label
-            boxes[box_idx, 1] = (x1 + x2) / 2
-            boxes[box_idx, 2] = (y1 + y2) / 2
-            boxes[box_idx, 3] = x2 - x1
-            boxes[box_idx, 4] = y2 - y1
-        return img, boxes
-
-# Default Augmentation
-
-
-class DefaultAug(ImageAug):
-    def __init__(self) -> None:
-        pass
-
-
-"""
-        iaa_list = [
-            iaa.Add(value=25),
-            iaa.Add(value=45),
-            iaa.Add(value=-25),
-            iaa.Add(value=-45),
-        ] + [
-            iaa.AdditiveGaussianNoise(scale=0.03*255),
-            iaa.AdditiveGaussianNoise(scale=0.05*255),
-            iaa.AdditiveGaussianNoise(scale=0.10*255),
-            iaa.AdditiveGaussianNoise(scale=0.20*255),
-        ] + [
-            iaa.SaltAndPepper(p=0.01),
-            iaa.SaltAndPepper(p=0.02),
-            iaa.SaltAndPepper(p=0.03),
-        ] + [
-            iaa.Cartoon()
-        ] + [
-            iaa.BlendAlpha(factor=0.2)
-        ] + [
-GaussianBlur(sigma=0.25)
-GaussianBlur(sigma=0.50)
-GaussianBlur(sigma=1.00)
-        ] + [
-MotionBlur(0)
-MotionBlur(72)
-MotionBlur(144)
-MotionBlur(216)
-MotionBlur(288)
-        ] + [
-            ChangeColorTemperature(kelvin=8000)
-ChangeColorTemperature(kelvin=16000)
-        ] + [
-RemoveSaturation(mul=0.25)
-        ] + [
-GammaContrast(gamma=0.50)
-GammaContrast(gamma=0.81)
-GammaContrast(gamma=1.12)
-GammaContrast(gamma=1.44)
-        ] + [
-SigmoidContrast(gain=5.1)
-SigmoidContrast(gain=17.1)
-SigmoidContrast(gain=14.4)
-        ] + [
-HistogramEqualization(to_colorspace=HSV)
-HistogramEqualization(to_colorspace=HLS)
-HistogramEqualization(to_colorspace=Lab)
-        ] + [
-Sharpen(alpha=1, lightness=1.5)
-Sharpen(alpha=1, lightness=1.2)
-Sharpen(alpha=1, lightness=0.5)
-Sharpen(alpha=1, lightness=0.8)
-        ] + [
-Emboss(alpha=1, strength=0.2)
-Emboss(alpha=1, strength=0.3)
-Emboss(alpha=1, strength=0.4)
-        ] + [
-ZoomBlur(severity=1)
-ZoomBlur(severity=2)
-ZoomBlur(severity=3)
-ZoomBlur(severity=4)
-ZoomBlur(severity=5)
-        ] + [
-
-        ] + [
-
-        ] + [
-
-        ] + [
-
-        ] + [] + [] + [] + [] + [] + []
-
-
-        self.augmentations = iaa.Sequential(iaa_list)
-
-"""
-
-
-class ResizeImage(object):
-    def __init__(self, new_size, interpolation=cv2.INTER_LINEAR):
-        self.new_size = tuple(new_size)
-        self.interpolation = interpolation
-
-    def __call__(self, data):
-        image, label = data
-        image = cv2.resize(image, self.new_size,
-                           interpolation=self.interpolation)
-        return image, label
+    def add(self, transform):
+        self.transforms.append(transform)
 
 
 class ToTensor(object):
+    def __init__(self, max_objects=50, is_debug=False):
+        self.max_objects = max_objects
+        self.is_debug = is_debug
+
+    def __call__(self, data):
+        image, labels = data
+        if self.is_debug == False:
+            image = torch.tensor(np.ascontiguousarray(np.transpose(np.array(image, dtype=float) / 255,(2,0,1))),dtype=torch.float32)
+        elif self.is_debug == True:
+            image = torch.tensor(np.array(image, dtype=float),dtype=torch.float32)
+        labels = torch.FloatTensor(np.array(labels))
+        return image, labels
+
+class KeepAspect(object):
     def __init__(self):
         pass
 
     def __call__(self, data):
-        image, labels = data
-        image = torch.tensor(
-            np.transpose(
-                # Image Normalize
-                np.array(image, dtype=float)/255., (2, 0, 1)
-            ),
-            dtype=torch.float32
-        )  # H, W, C -> C, H, W
-        labels = torch.FloatTensor(np.array(labels))
+        image, label = data
 
-        return image, labels
+        h, w, _ = image.shape
+        dim_diff = np.abs(h - w)
+        # Upper (left) and lower (right) padding
+        pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
+        # Determine padding
+        pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))
+        # Add padding
+        image_new = np.pad(image, pad, 'constant', constant_values=128)
+        padded_h, padded_w, _ = image_new.shape
 
+        # Extract coordinates for unpadded + unscaled image
+        x1 = w * (label[:, 0] - label[:, 2]/2)
+        y1 = h * (label[:, 1] - label[:, 3]/2)
+        x2 = w * (label[:, 0] + label[:, 2]/2)
+        y2 = h * (label[:, 1] + label[:, 3]/2)
+        # Adjust for added padding
+        x1 += pad[1][0]
+        y1 += pad[0][0]
+        x2 += pad[1][0]
+        y2 += pad[0][0]
+        # Calculate ratios from coordinates
+        label[:, 0] = ((x1 + x2) / 2) / padded_w
+        label[:, 1] = ((y1 + y2) / 2) / padded_h
+        label[:, 2] *= w / padded_w
+        label[:, 3] *= h / padded_h
 
-if __name__ == '__main__':
-    image = np.asarray(Image.open('img (194).png'))
-    with open('img (194).txt', 'r') as f:
-        bb_arr = [[float(n.replace('\n', ''))
-                   for n in a_line.split(' ')[1:]]for a_line in f.readlines()]
+        return image_new, label
 
-        bbs = BoundingBoxesOnImage([
-            BoundingBox(
-                x1=((n[0] - n[2]/2)*image.shape[1]),
-                x2=(n[0] + n[2]/2)*image.shape[1],
-                y1=(n[1] - n[3]/2)* image.shape[0],
-                y2=(n[1] + n[3]/2)*image.shape[0]
-                ) for n in bb_arr
-        ], shape=image.shape)
+class ResizeImage(object):
+    def __init__(self, new_size, interpolation=cv2.INTER_LINEAR):
+        self.new_size = tuple(new_size) #  (w, h)
+        self.interpolation = interpolation
 
-    seq = iaa.Sequential([
-        iaa.Multiply((1.2, 1.5)),  # change brightness, doesn't affect BBs
-        iaa.Affine(
-            translate_px={"x": 40, "y": 60},
-            scale=(0.5, 0.7)
-        ),  # translate by 40/60px on x/y axis, and scale to 50-70%, affects BBs
-        iaa.SaltAndPepper(p=0.03)
-    ])
-    # seq = iaa.Identity()
-    # Augment BBs and images.
-    image_aug, bbs_aug = seq(image=image, bounding_boxes=bbs)
+    def __call__(self, data):
+        image, label = data
+        image = cv2.resize(image, self.new_size, interpolation=self.interpolation)
 
-    # print coordinates before/after augmentation (see below)
-    # use .x1_int, .y_int, ... to get integer coordinates
-    for i in range(len(bbs.bounding_boxes)):
-        before = bbs.bounding_boxes[i]
-        after = bbs_aug.bounding_boxes[i]
-        print("BB %d: (%.4f, %.4f, %.4f, %.4f) -> (%.4f, %.4f, %.4f, %.4f)" % (
-            i,
-            before.x1, before.y1, before.x2, before.y2,
-            after.x1, after.y1, after.x2, after.y2)
+        return image, label
+
+class ImageBaseAug(object):
+    def __init__(self):
+        sometimes = lambda aug: iaa.Sometimes(0.3, aug)
+        self.seq = iaa.Sequential(
+            [
+                # Blur each image with varying strength using
+                # gaussian blur (sigma between 0 and 3.0),
+                # average/uniform blur (kernel size between 2x2 and 7x7)
+                # median blur (kernel size between 3x3 and 11x11).
+                iaa.OneOf([
+                    iaa.GaussianBlur((0, 2.0)),
+                    iaa.AverageBlur(k=(2, 5)),
+                    iaa.MedianBlur(k=(3, 11)),
+                ]),
+                # Sharpen each image, overlay the result with the original
+                # image using an alpha between 0 (no sharpening) and 1
+                # (full sharpening effect).
+                sometimes(iaa.Sharpen(alpha=(0, 0.5), lightness=(0.75, 1.5))),
+                # Add gaussian noise to some images.
+                sometimes(iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5)),
+                # Add a value of -5 to 5 to each pixel.
+                sometimes(iaa.Add((-2, 2), per_channel=0.5)),
+                # Change brightness of images (80-120% of original value).
+                sometimes(iaa.Multiply((0.9, 1.1), per_channel=0.5)),
+                # Improve or worsen the contrast of images.
+                # sometimes(iaa.contrast.LinearContrast((0.5, 2.0), per_channel=0.5)),
+            ],
+            # do all of the above augmentations in random order
+            random_order=True
         )
 
-    # image with BBs before/after augmentation (shown below)
-    image_before = bbs.draw_on_image(image, size=2)
-    image_after = bbs_aug.draw_on_image(image_aug, size=2, color=[0, 0, 255])
-    print(image_aug.shape, bbs_aug.shape)
-    im = Image.fromarray(image_after)
-    im.save("your_file.png")
-    print("444")
+    def __call__(self, data):
+        seq_det = self.seq.to_deterministic()
+        image, label = data
+        image = seq_det.augment_images([image])[0]
+        return image, label
+
+class ImgAug(object):
+    def __init__(self, augmentations=[]):
+        self.augmentations = augmentations
+
+    def __call__(self, data):
+        # Unpack data
+        img, boxes = data
+
+        # Convert xywh to xyxy
+        boxes = np.array(boxes)
+        boxes[:, 1:] = xywh2xyxy_np(boxes[:, 1:])
+
+        # Convert bounding boxes to imgaug
+        bounding_boxes = BoundingBoxesOnImage(
+            [BoundingBox(*box[1:], label=box[0]) for box in boxes],
+            shape=img.shape)
+
+        if len(bounding_boxes) != 0:
+            origin_box = bounding_boxes[0]
+
+        # Apply augmentations
+        img, bounding_boxes = self.augmentations(
+            image=img,
+            bounding_boxes=bounding_boxes)
+
+        if len(self.augmentations.find_augmenters_by_name('fliplr_tstl')) != 0 and len(bounding_boxes) != 0:
+            augmented_box = bounding_boxes[0]
+            if origin_box.x1 != augmented_box.x1 or origin_box.x2 != augmented_box.x2:
+                use_flip = True
+            else:
+                use_flip = False
+
+            if use_flip:
+                for box_idx, box in enumerate(bounding_boxes):
+                    if box.label == 0:
+                        bounding_boxes[box_idx].label = 1
+                    elif box.label == 1:
+                        bounding_boxes[box_idx].label = 0
+        
+        # Clip out of image boxes
+        bounding_boxes = bounding_boxes.remove_out_of_image_fraction(0.4)
+        bounding_boxes = bounding_boxes.clip_out_of_image()
+
+        # Convert bounding boxes back to numpy
+        boxes = np.zeros((len(bounding_boxes), 5), dtype=np.float64)
+        for box_idx, box in enumerate(bounding_boxes):
+            # Extract coordinates for unpadded + unscaled image
+            x1 = box.x1
+            y1 = box.y1
+            x2 = box.x2
+            y2 = box.y2
+
+            # Returns (x, y, w, h)
+            boxes[box_idx, 0] = box.label
+            boxes[box_idx, 1] = ((x1 + x2) / 2)
+            boxes[box_idx, 2] = ((y1 + y2) / 2)
+            boxes[box_idx, 3] = (x2 - x1)
+            boxes[box_idx, 4] = (y2 - y1)
+
+        return img, boxes
+
+class DefaultAug(ImgAug):
+    def __init__(self, ):
+        self.augmentations = iaa.Sequential([
+            iaa.Sharpen((0.0, 0.1)),
+            iaa.Affine(rotate=(-0, 0), translate_percent=(-0.1, 0.1), scale=(1.0, 2.0)),
+            iaa.AddToBrightness((-40, 60)),
+            iaa.AddToHue((-10, 10)),
+        ])
+
+#flip augmentation for tstl dataset
+#if flip occured, change label of the box between "left sign" and "right sign"
+class FlipAug_tstl(ImgAug):
+    def __init__(self, ):
+        self.augmentations = iaa.Sequential([
+                iaa.Fliplr(0.5, name='fliplr_tstl')
+        ])
+
+class AbsoluteLabels(object):
+    def __init__(self, ):
+        pass
+
+    def __call__(self, data):
+        image, label = data
+        h, w, _ = image.shape
+        label[:, [1, 3]] *= w
+        label[:, [2, 4]] *= h
+        return image, label
+
+class RelativeLabels(object):
+    def __init__(self, ):
+        pass
+
+    def __call__(self, data):
+        image, label = data
+        h, w, _ = image.shape
+        label[:, [1, 3]] /= w
+        label[:, [2, 4]] /= h
+        return image, label
+
+class PadSquare(ImgAug):
+    def __init__(self, ):
+        self.augmentations = iaa.Sequential([
+            iaa.PadToAspectRatio(
+                1.0,
+                position="center-center").to_deterministic()
+        ])
+
+class AffineAug(object):
+    def __init__(self):
+        sometimes = lambda aug: iaa.Sometimes(0.4, aug)
+        self.seq = iaa.Sequential(
+            [
+                sometimes(iaa.Affine(scale = 0.8)),
+                # sometimes(iaa.Affine(translate_percent=0.1))
+            ],
+            random_order=True
+        )
+    
+    def __call__(self, data):
+        seq_det = self.seq.to_deterministic()
+        image, label = data
+        img_h, img_w = image.shape[:2]
+        ia_bboxes = []
+        for box in label:
+            xmin, xmax = img_w * (box[0] - box[2]/2), img_w * (box[0] + box[2]/2)
+            ymin, ymax = img_h * (box[1] - box[3]/2), img_h * (box[1] + box[3]/2)
+            ia_bboxes.append(ia.BoundingBox(x1=xmin, y1=ymin, x2=xmax, y2=ymax))
+        label_ia =ia.BoundingBoxesOnImage(ia_bboxes, shape=image.shape)
+        image = seq_det.augment_images([image])[0]
+        label_ia = seq_det.augment_bounding_boxes([label_ia])[0]
+
+
+        for i, bbox in enumerate(label_ia):
+            label[i] = np.array([bbox.x1, bbox.y1, bbox.x2, bbox.y2])
+
+        return image, label
