@@ -13,6 +13,7 @@ class TrafficLight():
         return bool(self.get_circles_(image, opencv_xywh)[2])
 
     def get_circles_(self, image, opencv_xywh):
+        three_circles = [False, False, False]
 
         _, _, v = self._get_hsv_(image)
         cimg = cv2.GaussianBlur(image, (5, 5), 0)
@@ -44,6 +45,8 @@ class TrafficLight():
             cv2.imshow('circles', cimg)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
+        return three_circles
 
     def crop_image_(self, path, xywh):
         # for detect circles
