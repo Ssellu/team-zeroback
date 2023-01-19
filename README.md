@@ -8,19 +8,65 @@ TODO - URL GOOGLE DRIVE (OUR LABELLED DATASET)
 The directory structures like below.
 ```
 .$(ROOT)
-├── dataset
-│   ├── annotations
-│   └── image_sets
-├── LICENSE
-├── README.md
-├── ros
-│   └── launch
-└── src
-    ├── driving
-    │   ├── control
-    │   └── lane_detection
-    ├── object_detection
-    └── training
+├─dataset
+│  ├─.labeling_data_rt
+│  │  ├─labeling_ignore_data
+│  │  │  └─annotations
+│  │  └─labeling_non_ignore_data
+│  │      └─annotations
+│  └─annotations
+├─ros
+│  └─launch
+└─src
+    ├─driving
+    │  ├─control
+    │  └─lane_detection
+    ├─object_detection
+    └─training
+        ├─dataloader
+        │  └─__pycache__
+        ├─datasets
+        │  ├─Annotations
+        │  ├─ImageSets
+        │  └─JPEGImages
+        ├─demo
+        │  └─__pycache__
+        ├─eval
+        │  └─__pycache__
+        ├─model
+        │  └─__pycache__
+        ├─output
+        │  └─Evaluation
+        │      ├─AP
+        │      │  ├─crosswalk
+        │      │  ├─left
+        │      │  ├─right
+        │      │  ├─stop
+        │      │  └─uturn
+        │      ├─F1
+        │      │  ├─crosswalk
+        │      │  ├─left
+        │      │  ├─right
+        │      │  ├─stop
+        │      │  └─uturn
+        │      ├─Precision
+        │      │  ├─crosswalk
+        │      │  ├─left
+        │      │  ├─right
+        │      │  ├─stop
+        │      │  └─uturn
+        │      └─Recall
+        │          ├─crosswalk
+        │          ├─left
+        │          ├─right
+        │          ├─stop
+        │          └─uturn
+        ├─pretrain
+        ├─train
+        │  └─__pycache__
+        ├─util
+        │  └─__pycache__
+        └─utils
 ```
 
 ### 1.3 Unzip And Move Dataset
