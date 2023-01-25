@@ -4,7 +4,7 @@ import PIL, time
 from train.loss import *
 import csv
 from terminaltables import AsciiTable
-
+from util.converter import *
 class Evaluator:
     def __init__(self, model, eval_data, eval_loader, device, hparam):
         self.model = model
@@ -26,9 +26,9 @@ class Evaluator:
             if batch is None:
                 continue
             input_img, targets, _ = batch
-            
+
             input_img = input_img.to(self.device, non_blocking=True)
-            
+
             gt_labels += targets[...,1].tolist()
 
             targets[...,2:6] = cxcy2minmax(targets[...,2:6])
@@ -41,9 +41,9 @@ class Evaluator:
             with torch.no_grad():
                 output = self.model(input_img)
                 best_box_list = non_max_suppression(output, conf_thres=0.1, iou_thres=0.5)
-                
+
             predict_all += get_batch_statistics(best_box_list, targets, iou_threshold=0.5)
-                
+
             if len(predict_all) == 0:
                 print("no detection in eval data")
                 return None
@@ -55,7 +55,7 @@ class Evaluator:
 
         metrics_output = ap_per_class(
             true_positives, pred_scores, pred_labels, gt_labels)
-        
+
         #print eval result
         if metrics_output is not None:
             precision, recall, ap, f1, ap_class = metrics_output
@@ -64,14 +64,14 @@ class Evaluator:
                 ap_table += [[c, self.class_str[c], "%.5f" % ap[i]]]
             print(AsciiTable(ap_table).table)
         print("---- mAP {AP.mean():.5f} ----")
-        
-    
+
+
     def evaluate(self, preds, targets):
         #class mapping
         class8 = [0,1,2,3,4,5,6,7] #Car, Van, Truck, Ped, Ped_sitting, Cyclist, Tram, Misc
         class3 = [0,0,0,1,1,2,-1,-1] #Vehicle, Ped, Cyclist
         class2 = [0,0,0,1,1,1,-1,-1] #Vehicle, Ped
-        
+
         #move the preds and targets from device to cpu
         preds = preds.detach().cpu()
         targets['bbox'] = targets['bbox'].detach().cpu()
@@ -80,7 +80,7 @@ class Evaluator:
         targets_cls_valid = None
         targets_bbox_valid = None
 
-        #make mask tensor 
+        #make mask tensor
         pred_mask = torch.ones(preds.shape[0], requires_grad=False)
         gt_mask = torch.zeros(targets_cls_valid.shape[0], requires_grad=False) if targets_cls_valid is not None else torch.tensor([])
 
@@ -95,22 +95,22 @@ class Evaluator:
             tbox[i,2] = tbox[i,2] * self.model.in_width
             tbox[i,1] = tbox[i,1] * self.model.in_height
             tbox[i,3] = tbox[i,3] * self.model.in_height
-    
+
             for j, (pbox, pobj_score, pcls_score, pcls_idx) in enumerate(zip(preds[:,:4], preds[:,4:5], preds[:,5:6], preds[:,6:])):
                 #print(pbox.shape, pobj_score.shape, pcls_score.shape, pcls_idx.shape, tbox.shape, tcls.shape)
 
                 pcls_idx = class3[int(pcls_idx.item())]
                 if tcls[i] != pcls_idx or pred_mask[j] == 0 or tcls[i] == -1 or pcls_idx == -1:
                     continue
-                
+
                 iou_value = iou(tbox[i:i+1], pbox.unsqueeze(0), mode=1)
-                
+
                 #print("box {} {} / iou : {}".format(tbox[i:i+1], pbox, iou_value))
 
                 if iou_value > 0.5:
                     gt_mask[i] = 1
                     pred_mask[j] = 0
-        
+
         gt_matched = (gt_mask == 1).nonzero(as_tuple=True)
         gt_missed = (gt_mask == 0).nonzero(as_tuple=True)
         pred_false = (pred_mask == 1).nonzero(as_tuple=True)
@@ -131,8 +131,8 @@ class Evaluator:
                     self.preds = preds[pred_true[0][p]].reshape(1,-1)
                 else:
                     self.preds = torch.cat((self.preds, preds[pred_true[0][p]].reshape(1,-1)), dim = 0)
-                    
-        
+
+
     def evaluate_result(self):
         precision = self.tp / (self.tp + self.fp + 1e-6)
         recall = self.tp / (self.tp + self.fn + 1e-6)
@@ -141,16 +141,16 @@ class Evaluator:
         tp = self.tp.detach().numpy().tolist()
         fp = self.fp.detach().numpy().tolist()
         fn = self.fn.detach().numpy().tolist()
-        
+
         self.class_list.remove('DontCare')
         data = {'name' : ['precision', 'recall', 'TP', 'FP', 'FN']}
-        
+
         for i, cls in enumerate(self.class_list):
             data[cls] = [precision[i], recall[i], tp[i], fp[i], fn[i]]
-        
+
         df = pd.DataFrame(data)
         print(df)
-        
+
         df.to_csv('./evaluation.csv')
 
-        
+

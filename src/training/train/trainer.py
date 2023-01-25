@@ -10,6 +10,7 @@ from dataloader.yolodata import *
 from dataloader.data_transforms import *
 
 from terminaltables import AsciiTable
+from util.converter import *
 
 class Trainer:
     def __init__(self, model, train_loader, eval_loader, hparam, class_str, device, checkpoint = None, torch_writer = None):
@@ -26,7 +27,7 @@ class Trainer:
         self.optimizer = optim.SGD(model.parameters(), lr=hparam['lr'], momentum=hparam['momentum'], weight_decay=hparam['decay'])
         self.class_str = class_str
 
-        
+
         if checkpoint is not None:
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.epoch = checkpoint['epoch']
@@ -36,7 +37,7 @@ class Trainer:
                                                            milestones=[10000,20000,30000],
                                                            gamma=0.5)
         #scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.max_batch-hparam['burn_in'])
-        
+
         #warm-up learning rate scheduler
         self.lr_scheduler = LearningRateWarmUP(optimizer=self.optimizer,
                                                warmup_iteration=hparam['burn_in'],
@@ -55,7 +56,7 @@ class Trainer:
                             'model_state_dict': self.model.state_dict(),
                             'optimizer_state_dict': self.optimizer.state_dict(),
                             'loss': loss}, checkpoint_path)
-                
+
                 #evaluate
                 self.model.eval()
                 self.run_eval()
@@ -70,7 +71,7 @@ class Trainer:
             if batch is None:
                 continue
             input_img, targets, anno_path = batch
-            
+
             # show the input image and bounding boxes on it
 
             # input_wh = [input_img.shape[3], input_img.shape[2]]
@@ -82,20 +83,20 @@ class Trainer:
             #     target_box[:,3] *= input_wh[1]
             #     drawBox(input_img.detach().numpy()[b], target_box, cls = targets[targets[:,0] == b,1])
             # continue
-            
+
             input_img = input_img.to(self.device, non_blocking=True)
 
             start_time = time.time()
 
             #inference model
             output = self.model(input_img)
-            
+
             #compute loss
             loss, loss_list = self.yololoss.compute_loss(pred = output,
                                                         targets = targets,
                                                         yolo_layers = self.model.yolo_layers,
                                                         tmp_img = None)
-            
+
             calc_time = time.time() - start_time
 
             loss.backward()
@@ -115,7 +116,7 @@ class Trainer:
                 for ln, ls in zip(loss_name, loss_list):
                     self.torch_writer.add_scalar(ln, ls, self.iter)
         return loss
-    
+
     def run_eval(self):
         #all predictions on eval dataset
         predict_all = []
@@ -126,9 +127,9 @@ class Trainer:
             if batch is None:
                 continue
             input_img, targets, _ = batch
-            
+
             input_img = input_img.to(self.device, non_blocking=True)
-            
+
             gt_labels += targets[...,1].tolist()
 
             targets[...,2:6] = cxcy2minmax(targets[...,2:6])
@@ -141,9 +142,9 @@ class Trainer:
             with torch.no_grad():
                 output = self.model(input_img)
                 best_box_list = non_max_suppression(output, conf_thres=0.1, iou_thres=0.5)
-                
+
             predict_all += get_batch_statistics(best_box_list, targets, iou_threshold=0.5)
-                
+
             if len(predict_all) == 0:
                 print("no detection in eval data")
                 return None
@@ -155,7 +156,7 @@ class Trainer:
 
         metrics_output = ap_per_class(
             true_positives, pred_scores, pred_labels, gt_labels)
-        
+
         #print evaluation scores
         if metrics_output is not None:
             precision, recall, ap, f1, ap_class = metrics_output

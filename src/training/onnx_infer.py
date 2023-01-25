@@ -7,8 +7,9 @@ import numpy as np
 import cv2
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-from dataloader.data_transforms import * 
+from dataloader.data_transforms import *
 from util.tools import *
+from util.converter import *
 
 def parse_args():
     parser = argparse.ArgumentParser(description="onnx_inference")
@@ -89,9 +90,9 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 def main():
     print("onnx_inference")
     print("onnxruntime :" , onnxruntime.get_device())
-    
+
     model = onnx.load(args.model)
-    
+
     img = cv2.imread("C:/data//kitti_dataset//testing//Images//000315.png", cv2.IMREAD_COLOR)
     #img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (608,608), cv2.INTER_LINEAR)
@@ -101,10 +102,10 @@ def main():
     np_img = np.expand_dims(img, axis=0)
     print(np_img.dtype)
     img = torch.FloatTensor(np.expand_dims(img, axis=0)).to(torch.device("cuda:0"))
-    
-    
+
+
     print("input dim : ", img.shape)
-    
+
     print(onnx.checker.check_model(model))
     x_test = torch.randn(1, 3, 608, 608, requires_grad=True).to(torch.device("cuda:0"))
     def to_numpy(tensor):
@@ -128,7 +129,7 @@ def main():
 
     # ONNX 런타임에서 계산된 결과값
     ort_inputs = {ort_session.get_inputs()[0].name: np_img} #to_numpy(img)
-    
+
     ort_outs = ort_session.run(None, ort_inputs)
     print("out dim: ", ort_outs[0].shape)
 
