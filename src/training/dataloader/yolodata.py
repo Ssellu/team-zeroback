@@ -6,7 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
-from util.tools import *
+
 
 class Yolodata(Dataset):
     file_dir = ""
@@ -61,7 +61,7 @@ class Yolodata(Dataset):
             for ext in ['.png','.PNG','.jpg','.JPG']:
                 txt_name = txt_name.replace(ext, ".txt")
             anno_path = self.anno_dir + txt_name
-            
+
             #skip if no anno_file
             if not os.path.exists(anno_path):
                 return
@@ -78,7 +78,7 @@ class Yolodata(Dataset):
 
             #Change gt_box type
             bbox = np.array(bbox)
-            
+
             #skip empty target
             if bbox.shape[0] == 0:
                 return

@@ -10,7 +10,7 @@ from eval.evaluator import Evaluator
 from torch.utils.data.dataloader import DataLoader
 import torchsummary as summary
 from model.yolov3 import DarkNet53
-from dataloader.yolodata import *
+from dataloader.yolodata import Yolodata
 from train.trainer import Trainer
 from demo.demo import Demo
 from dataloader.data_transforms import *
