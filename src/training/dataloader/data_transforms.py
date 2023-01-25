@@ -29,7 +29,7 @@ def get_transformations(cfg_param = None, is_train = None, augmenter:iaa.meta.Au
             compose_list.append(AugProxy(augmenter=augmenter, kwargs=kwargs))
 
         compose_list += [RelativeLabels(),
-                        ResizeImage(new_size=(cfg_param['width'], cfg_param['height'])),
+                        ResizeImage(new_size=(cfg_param['in_width'], cfg_param['in_height'])),
                         ToTensor(),]
 
         data_transform = tf.Compose(compose_list)
