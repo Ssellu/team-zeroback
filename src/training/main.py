@@ -58,7 +58,7 @@ def collate_fn(batch):
     imgs, targets, anno_path = list(zip(*batch))
 
     imgs = torch.stack([img for img in imgs])
-    
+
     if targets[0] is None or anno_path[0] is None:
         return imgs, None, None
 
@@ -70,11 +70,9 @@ def collate_fn(batch):
 
 def train(cfg_param = None, using_gpus = None):
     #Train dataloader
-    transforms = get_transformations(cfg_param, is_train = True)
-    train_data = Yolodata(is_train=True,
-                          transform=transforms,
-                          cfg_param = cfg_param)
-    train_loader = DataLoader(train_data, 
+    train_data = aug_dataset(cfg_param=cfg_param)
+
+    train_loader = DataLoader(train_data,
                               batch_size=cfg_param['batch'],
                               num_workers=0,
                               pin_memory=True,
@@ -98,14 +96,14 @@ def train(cfg_param = None, using_gpus = None):
 
     #Get OD model
     model = DarkNet53(args.cfg, cfg_param)
-    
+
     #load pre-trained darknet weights
     if args.pretrained is not None:
         print("load pretrained model")
         model.load_darknet_weights(args.pretrained)
     else:
         model.initialize_weights()
-    
+
     #Set the device what you use, GPU or CPU
     for i in using_gpus:
         print("GPU total memory : {} free memory : {}".format(get_memory_total_MiB(i), get_memory_free_MiB(i)))
@@ -139,37 +137,37 @@ def train(cfg_param = None, using_gpus = None):
             new_key = "module." + key
             checkpoint['model_state_dict'][new_key] = checkpoint['model_state_dict'].pop(key)
         model.load_state_dict(checkpoint['model_state_dict'])
-    
+
     #Pre-check the model structure and size of parameters
     summary.summary(model, input_size=(3, cfg_param["in_width"], cfg_param["in_height"]), device='cuda') #or 'cpu'
-    
+
     #Setting the torch log directory to use tensorboard
     torch_writer = SummaryWriter("./output")
-    
+
     if len(using_gpus) > 0:
         yolo_model = model.module
     else:
         yolo_model = model
-        
+
     yolo_model.train()
-    
+
     #Set trainer
     trainer = Trainer(yolo_model, train_loader, eval_dataloader, cfg_param, eval_data.class_str, device, checkpoint, torch_writer = torch_writer)
     trainer.run()
 
 def eval(cfg_param = None, using_gpus = None):
     print("evaluation")
-    transforms = get_transformations(cfg_param, is_train = False)    
+    transforms = get_transformations(cfg_param, is_train = False)
     eval_data = Yolodata(is_train = False, transform = transforms, cfg_param = cfg_param)
     eval_loader = DataLoader(eval_data, batch_size = 1, num_workers = 0, pin_memory = True, drop_last = False, shuffle = False, collate_fn=collate_fn)
-    
+
     model = DarkNet53(args.cfg, cfg_param)
 
     if len(using_gpus) == 0:
         device = torch.device("cpu")
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
     if device == torch.device('cuda'):
         print("device is cuda")
     elif device == torch.device('cpu'):
@@ -181,21 +179,21 @@ def eval(cfg_param = None, using_gpus = None):
         model.load_state_dict(checkpoint['model_state_dict'])
 
     model = model.to(device)
-    
+
     model.eval()
-    
+
     torch.backends.cudnn.benchmark = True
 
     evaluator = Evaluator(model, eval_data, eval_loader, device, cfg_param)
-    
+
     evaluator.run()
-    
+
 def demo(cfg_param = None, using_gpus = None):
     print("demo")
-    transforms = get_transformations(cfg_param, is_train = False)    
+    transforms = get_transformations(cfg_param, is_train = False)
     data = Yolodata(is_train = False, transform = transforms, cfg_param = cfg_param)
     demo_loader = DataLoader(data, batch_size = 1, num_workers = 0, pin_memory = True, drop_last = False, shuffle = False, collate_fn=collate_fn)
-    
+
     model = DarkNet53(args.cfg, cfg_param)
     model.eval()
 
@@ -212,7 +210,7 @@ def demo(cfg_param = None, using_gpus = None):
         torch.save(chkpt, target)
     else:
         model.initialize_weights()
-    
+
     if args.checkpoint is not None:
         print("load pretrained model ", args.checkpoint)
         checkpoint = torch.load(args.checkpoint)
@@ -222,15 +220,15 @@ def demo(cfg_param = None, using_gpus = None):
         device = torch.device("cpu")
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
     if device == torch.device('cuda'):
         print("device is cuda")
     elif device == torch.device('cpu'):
         print('device is cpu')
-    
+
     model = model.to(device)
     model.eval()
-    
+
     if args.pretrained is not None:
         darknet_weights_name = args.pretrained.replace(".weights", "_new.weights")
     elif args.checkpoint is not None:
@@ -240,16 +238,16 @@ def demo(cfg_param = None, using_gpus = None):
     torch.backends.cudnn.benchmark = True
 
     demo = Demo(model, data, demo_loader, device, cfg_param)
-    
+
     demo.run()
 
 
-#convert trained yolov3 model from pytorch to ONNX format 
+#convert trained yolov3 model from pytorch to ONNX format
 def torch2onnx(cfg_param = None, using_gpus = None):
     #Get OD model
     cfg_param['batch'] = 1
     model = DarkNet53(args.cfg, cfg_param)
-    
+
     if args.pretrained is not None:
         model.load_darknet_weights(args.pretrained)
     #Set the device what you use, GPU or CPU
@@ -282,14 +280,14 @@ def torch2onnx(cfg_param = None, using_gpus = None):
         print("load checkpoint model ", args.checkpoint)
         checkpoint = torch.load(args.checkpoint, map_location=torch.device('cpu'))
         model.load_state_dict(checkpoint['model_state_dict'])
-    
+
     model.eval()
-    
+
     darknet_weights_name = args.checkpoint.replace(".pth", ".weights")
     onnx_weights_name = args.checkpoint.replace(".pth", ".onnx")
     #save the model to darknet format
     model.save_darknet_weights(darknet_weights_name, cutoff=-1)
-    
+
     #export from torch model to ONNX format
     x_test = torch.ones(1, 3, cfg_param["in_width"], cfg_param["in_height"], requires_grad=True, dtype=torch.float32).to(device)
     torch.onnx.export(model, x_test, onnx_weights_name, export_params=True, opset_version=11, input_names=['input'], output_names=['output'], do_constant_folding=True)
@@ -301,12 +299,12 @@ def torch2onnx(cfg_param = None, using_gpus = None):
 
     # ONNX 런타임에서 계산된 결과값
     ort_inputs = {ort_session.get_inputs()[0].name: to_numpy(x_test)}
-    
+
     #inference onnx_model
     ort_outs = ort_session.run(None, ort_inputs)
     #inference torch_model
     torch_outs = model(x_test)
-    
+
     #print("torch output : ", len(torch_outs), " ", torch_outs.shape)
     print("onnx out: ", len(ort_outs), ort_outs[0].shape)
     for i in range(len(torch_outs)):
@@ -318,7 +316,7 @@ if __name__ == "__main__":
     args = parse_args()
     cfg_data = parse_hyperparam_config(args.cfg)
     cfg_param = get_hyperparam(cfg_data)
-    
+
     # multi-gpu
     print("GPUS : ", args.gpus)
     using_gpus = [int(g) for g in args.gpus]

@@ -10,19 +10,35 @@ from imgaug.augmentables.bbs import BoundingBox, BoundingBoxesOnImage
 
 from util.tools import minmax2cxcy, xywh2xyxy_np
 
-def get_transformations(cfg_param = None, is_train = None):
+def get_transformations(cfg_param = None, is_train = None, augmenter:iaa.meta.Augmenter=None, **kwargs):
+
     if is_train:
-        data_transform = tf.Compose([AbsoluteLabels(),
-                                     FlipAug_tstl(),
-                                     DefaultAug(),
-                                     RelativeLabels(),
-                                     ResizeImage(new_size = (cfg_param['in_width'], cfg_param['in_height'])),
-                                     ToTensor(),])
+        # Make augmentated images into a bunch
+        # data_transform = tf.Compose([AbsoluteLabels(),
+        #                              DefaultAug(),
+        #                              RelativeLabels(),
+        #                              ResizeImage(new_size=(cfg_param['width'], cfg_param['height'])),
+        #                              ToTensor(),
+        #                              ])
+
+        compose_list = [AbsoluteLabels(),]
+
+        if augmenter is None:
+            compose_list.append(DefaultAug())
+        else:
+            compose_list.append(AugProxy(augmenter=augmenter, kwargs=kwargs))
+
+        compose_list += [RelativeLabels(),
+                        ResizeImage(new_size=(cfg_param['width'], cfg_param['height'])),
+                        ToTensor(),]
+
+        data_transform = tf.Compose(compose_list)
+
     elif not is_train:
         data_transform = tf.Compose([AbsoluteLabels(),
                                      RelativeLabels(),
                                      ResizeImage(new_size = (cfg_param['in_width'], cfg_param['in_height'])),
-                                     ToTensor(),]) 
+                                     ToTensor(),])
     return data_transform
 
 class Compose(object):
@@ -177,7 +193,7 @@ class ImgAug(object):
                         bounding_boxes[box_idx].label = 1
                     elif box.label == 1:
                         bounding_boxes[box_idx].label = 0
-        
+
         # Clip out of image boxes
         bounding_boxes = bounding_boxes.remove_out_of_image_fraction(0.4)
         bounding_boxes = bounding_boxes.clip_out_of_image()
@@ -208,6 +224,13 @@ class DefaultAug(ImgAug):
             iaa.AddToBrightness((-40, 60)),
             iaa.AddToHue((-10, 10)),
         ])
+
+class AugProxy(ImgAug):
+    def __init__(self, augmenter, **kwargs) -> None:
+        self.augmentations = iaa.Sequential([
+            augmenter(**kwargs['kwargs'])
+        ])
+
 
 #flip augmentation for tstl dataset
 #if flip occured, change label of the box between "left sign" and "right sign"
@@ -257,7 +280,7 @@ class AffineAug(object):
             ],
             random_order=True
         )
-    
+
     def __call__(self, data):
         seq_det = self.seq.to_deterministic()
         image, label = data

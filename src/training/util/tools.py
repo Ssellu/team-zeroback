@@ -7,6 +7,10 @@ import random
 import tqdm
 import torchvision
 
+from dataloader.yolodata import *
+from dataloader.data_transforms import *
+
+
 def ap_per_class(tp, conf, pred_cls, target_cls):
     """ Compute the average precision, given the recall and precision curves.
     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
@@ -124,7 +128,7 @@ def get_batch_statistics(outputs, targets, iou_threshold):
 
                 # Find the best matching target for our predicted box
                 iou, box_filtered_index = box_iou(pred_box.unsqueeze(0), torch.stack(filtered_targets)).max(0)
-                
+
                 # Remap the index in the list of filtered targets for that label to the index in the list with all targets.
                 box_index = filtered_target_position[box_filtered_index]
 
@@ -158,7 +162,7 @@ def minmax2cxcy(box):
         cy = (box[1] + box[3]) / 2
         w = box[2] - box[0]
         h = box[3] - box[1]
-        
+
         if cx - w/2 < 0 or cx + w/2 > 1:
             w -= 0.001
         if cy - h/2 < 0 or cy + h/2 > 1:
@@ -296,13 +300,13 @@ def iou(a, b, mode = 0, device = None, eps=1e-9):
     xmax = torch.min(a_x2, b_x2)
     ymin = torch.max(a_y1, b_y1)
     ymax = torch.min(a_y2, b_y2)
-    #get intersection area 
+    #get intersection area
     inter = (xmax - xmin).clamp(0) * (ymax - ymin).clamp(0)
     #get each box area
     a_area = (a_x2 - a_x1) * (a_y2 - a_y1 + eps)
     b_area = (b_x2 - b_x1) * (b_y2 - b_y1 + eps)
     union = a_area + b_area - inter + eps
-    
+
     if device is not None:
         iou = torch.zeros(b.shape[0], device=device)
     else:
@@ -362,7 +366,7 @@ def drawBoxlist(_img, boxes : list = [], mode : int = 0, name : str = ""):
     draw = ImageDraw.Draw(img_data)
     fontsize = 15
     font = ImageFont.truetype("./arial.ttf", fontsize)
-    for box in boxes:       
+    for box in boxes:
         if mode == 0:
             draw.rectangle((box[0] - box[2]/2, box[1] - box[3]/2, box[0] + box[2]/2, box[1] + box[3]/2), outline=(0,255,0), width=1)
             draw.text((box[0],box[1]), str(int(box[5]))+","+str(int(box[4]*100)) , fill ="red", font=font)
@@ -389,14 +393,14 @@ def parse_hyperparam_config(path):
     lines = file.read().split('\n')
     lines = [x for x in lines if x and not x.startswith('#')]
     lines = [x.rstrip().lstrip() for x in lines]  # get rid of fringe whitespaces
-        
+
     module_defs = []
     for line in lines:
         if line.startswith('['):  # This marks the start of a new block
             type_name = line[1:-1].rstrip()
             if type_name != "net":
                 continue
-            module_defs.append({})        
+            module_defs.append({})
             module_defs[-1]['type'] = type_name
             if module_defs[-1]['type'] == 'convolutional':
                 module_defs[-1]['batch_normalize'] = 0
@@ -408,14 +412,14 @@ def parse_hyperparam_config(path):
             module_defs[-1][key.rstrip()] = value.strip()
 
     return module_defs
-    
+
 def parse_model_config(path):
     """Parses the yolo-v3 layer configuration file and returns module definitions"""
     file = open(path, 'r')
     lines = file.read().split('\n')
     lines = [x for x in lines if x and not x.startswith('#')]
     lines = [x.rstrip().lstrip() for x in lines]  # get rid of fringe whitespaces
-        
+
     module_defs = []
     type_name = None
     for line in lines:
@@ -424,7 +428,7 @@ def parse_model_config(path):
             type_name = line[1:-1].rstrip()
             if type_name == "net":
                 continue
-            module_defs.append({})        
+            module_defs.append({})
             module_defs[-1]['type'] = type_name
             if module_defs[-1]['type'] == 'convolutional':
                 module_defs[-1]['batch_normalize'] = 0
@@ -479,9 +483,9 @@ def get_hyperparam(cfg):
                     'ignore_cls':ignore_cls}
         else:
             continue
-        
+
 def non_max_sup(input, num_classes, conf_th = 0.5, nms_th = 0.5, objectness = True):
-    
+
     box = input.new(input.shape)
     box[:,:,0] = input[:,:,0] - input[:,:,2] / 2
     box[:,:,1] = input[:,:,1] - input[:,:,3] / 2
@@ -489,7 +493,7 @@ def non_max_sup(input, num_classes, conf_th = 0.5, nms_th = 0.5, objectness = Tr
     box[:,:,3] = input[:,:,1] + input[:,:,3] / 2
     box[:,:,4:] = input[:,:,4:]
     input[:,:,:4] = box[:,:,:4]
-    
+
     #output = [None for _ in range(len(input))]
     output = None
     for i, pred in enumerate(box):
@@ -507,12 +511,12 @@ def non_max_sup(input, num_classes, conf_th = 0.5, nms_th = 0.5, objectness = Tr
 
         #get the highst score & class of masked pred
         class_conf, class_pred = torch.max(pred[:,5:5+num_classes], 1, keepdim=True)
-        
+
         #Convert predictions type [x,y,w,h,obj,class_conf,class_pred]
         detections = torch.cat((pred[:,:5], class_conf.float(), class_pred.float()),1)
-        
+
         device = detections.device
-        
+
         unique_labels = detections[:,-1].cpu().unique()
         if input.is_cuda:
             unique_labels = unique_labels.cuda()
@@ -530,7 +534,7 @@ def non_max_sup(input, num_classes, conf_th = 0.5, nms_th = 0.5, objectness = Tr
 
                 if len(detections_c) == 1:
                     break
-                
+
                 #get IOUs for all boxes with lower conf
                 ious = iou(max_detections[-1], detections_c[1:], device = device)
                 #remove detections iou >= nms threshold
@@ -609,3 +613,34 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
+
+
+def aug_dataset(cfg_param):
+
+    my_transform = [
+        get_transformations(cfg_param=cfg_param, is_train=True),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.Add, value=25),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.Add, value=45),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.Add, value=-25),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.Add, value=-45),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.AdditiveGaussianNoise, scale=0.03*255),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.AdditiveGaussianNoise, scale=0.05*255),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.AdditiveGaussianNoise, scale=0.10*255),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.AdditiveGaussianNoise, scale=0.20*255),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.SaltAndPepper, p=0.01),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.SaltAndPepper, p=0.02),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.SaltAndPepper, p=0.03),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.Cartoon),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.GaussianBlur, sigma=0.25),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.GaussianBlur, sigma=0.50),
+        get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.GaussianBlur, sigma=1.00),
+
+    ]
+    lst = [Yolodata(is_train=True,
+                    transform=my_transform[n],
+                    cfg_param=cfg_param) for n in range(len(my_transform))]
+
+    s = lst[0]
+    for e in lst[1:]: s += e
+
+    return s
