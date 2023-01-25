@@ -12,9 +12,9 @@ class Yolodata(Dataset):
     file_dir = ""
     anno_dir = ""
     file_txt = ""
-    train_dir = "./data"
+    train_dir = "../../data"
     train_txt = "all.txt"
-    valid_dir = "./data"
+    valid_dir = "../../data"
     valid_txt = "all.txt"
     class_str = ['left', 'right', 'stop', 'crosswalk', 'uturn', 'traffic_light']
     num_class = None
