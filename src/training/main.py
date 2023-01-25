@@ -17,6 +17,7 @@ from dataloader.data_transforms import *
 from tensorboardX import SummaryWriter
 import pynvml
 
+from util.tools import *
 import onnx,onnxruntime
 
 def get_memory_free_MiB(gpu_index):
