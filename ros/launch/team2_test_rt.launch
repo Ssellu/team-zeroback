@@ -1,4 +1,5 @@
 <launch>
+  <include file="$(find xycar_motor)/launch/xycar_motor.launch" />
   <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
     <param name="video_device" value="/dev/video0" />
     <param name="image_width" value="640" />
@@ -9,11 +10,10 @@
     <param name="camera_frame_id" value="usb_cam" />
     <param name="io_method" value="mmap"/>
   </node>
-  <node name="detection_lane" pkg="team2_pjt" type="team2_lane_detection_cvBridge_rt.py" respawn="false" output="screen">
-  </node>
-  <include file="$(find xycar_motor)/launch/xycar_motor.launch" />
-  <node name="control" pkg="team2_pjt" type="team2_control_rt.py" output="screen">
-  </node>
+
+  <node name="lane" pkg="team2_pjt" type="team2_lane_detection_cvBridge_rt.py" respawn="false" output="screen"/>
+  <node name="control" pkg="team2_pjt" type="team2_control_rt.py" output="screen"/>
+
 </launch>
 
 

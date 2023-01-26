@@ -37,7 +37,7 @@ def draw_rectangle(img, lpos, rpos, offset=0):
                        (0, 255, 0), 2)
     cv2.rectangle(img, (center-5, 15 + offset),
                        (center+5, 25 + offset),
-                       (0, 255, 0), 2)    
+                       (0, 255, 0), 2)
     cv2.rectangle(img, (315, 15 + offset),
                        (325, 25 + offset),
                        (0, 0, 255), 2)
@@ -62,7 +62,7 @@ def divide_left_right(lines):
             slope = 0
         else:
             slope = float(y2-y1) / float(x2-x1)
-        
+
         if abs(slope) > low_slope_threshold and abs(slope) < high_slope_threshold:
             slopes.append(slope)
             new_lines.append(line[0])
@@ -78,7 +78,7 @@ def divide_left_right(lines):
         x1, y1, x2, y2 = Line
 
         if (slope < 0) and (x2 < Width/2 - 90):
-            left_lines.append([Line.tolist()])       
+            left_lines.append([Line.tolist()])
         elif (slope > 0) and (x1 > Width/2 + 90):
             right_lines.append([Line.tolist()])
 
@@ -130,7 +130,7 @@ def get_line_pos(lines, left=False, right=False):
         b += Offset
         x1 = (Height - b) / float(m)
         x2 = ((Height/2) - b) / float(m)
-  
+
     return x1, x2, int(pos)
 
 # show image and return lpos, rpos
@@ -156,7 +156,7 @@ def process_image(frame):
     roi = edge_img[Offset : Offset+Gap, 0 : Width]
     cv2.imshow("roi", roi)
     all_lines = cv2.HoughLinesP(roi,1,math.pi/180,30,30,10)
-    
+
 
     # divide left, right lines
     if all_lines is None:
@@ -175,21 +175,21 @@ def process_image(frame):
     frame = draw_lines(frame, left_lines)
     frame = draw_lines(frame, right_lines)
     frame = cv2.line(frame, (230, 235), (410, 235), (255,255,255), 2)
-                                 
+
     # draw rectangle
     frame = draw_rectangle(frame, lpos, rpos, offset=Offset)
     cv2.imshow("ROI_FRAME",frame)
 
     # draw roi
     frame = cv2.rectangle(frame, (0, Offset), (Width, Offset+Gap), (0,0,255),2)
-      
-    return (lpos, rpos), frame 
+
+    return (lpos, rpos), frame
 
 def draw_steer(image, steer_angle):
     global Width, Height, arrow_pic
 
     arrow_pic = cv2.imread('/home/nvidia/xycar_ws/src/team2_pjt/src/steer_arrow.png', cv2.IMREAD_COLOR)
-   
+
     origin_Height = arrow_pic.shape[0]
     origin_Width = arrow_pic.shape[1]
     steer_wheel_center = origin_Height * 0.74
@@ -197,7 +197,7 @@ def draw_steer(image, steer_angle):
     arrow_Width = (arrow_Height * 462)/728
     #print ("arrow_Height : ", arrow_Height)
     #print ("arrow_Width : ", arrow_Width)
-    matrix = cv2.getRotationMatrix2D((origin_Width/2, steer_wheel_center), (steer_angle) * 2.5, 0.7)    
+    matrix = cv2.getRotationMatrix2D((origin_Width/2, steer_wheel_center), (steer_angle) * 2.5, 0.7)
     arrow_pic = cv2.warpAffine(arrow_pic, matrix, (origin_Width+60, origin_Height))
     arrow_pic = cv2.resize(arrow_pic, dsize=(arrow_Width, arrow_Height), interpolation=cv2.INTER_AREA)
 
@@ -220,30 +220,30 @@ def start():
     global cv_image, Width, Height, cv_image_origin, lst
     rospy.init_node("lane_detector", anonymous=True)
     rospy.Subscriber("/usb_cam/image_raw/", Image, img_callback) # spin
-    
+
     pub = rospy.Publisher("lane", Float32, queue_size=10)
     rate = rospy.Rate(100)
-   
+
 
     #cap = cv2.VideoCapture(0) # 'hough_track.avi' track2.avi
     img_cnt = 0
-    
+
     print "789"
     failed_cnt = 0
 
     while not rospy.is_shutdown():
-        #if not cap.isOpened(): continue  
+        #if not cap.isOpened(): continue
         #file_path = "/home/nvidia/xycar_ws/data_imgs/" + str(img_cnt)+ ".JPEG"
         print "123"
         if cv_image.size != (640*480*3):
             print "didn't load"
             continue
-     
+
         #cv2.imwrite(file_path, cv_image_origin)
         #cv2.waitKey(1)
         #fram2 = frame
-    
-       
+
+
         img_cnt += 1
         cv2.imshow("cv_img",cv_image)
         #cv2.waitKey(1)
@@ -252,7 +252,7 @@ def start():
 
         #if ret == 1:
         #    print "success"
-        #else: 
+        #else:
         #    print"failed"
         #    failed_cnt+=1
         #if failed_cnt == 100: return
@@ -260,13 +260,13 @@ def start():
 
         # if ret == 0:
         #    continue
-        
+
         #time.sleep(500)
-        
+
         pos, frame = process_image(cv_image)
-        
-        
-        center = (pos[0] + pos[1]) / 2 
+
+
+        center = (pos[0] + pos[1]) / 2
         center_avg = np.mean(lst)
         if abs(center - center_avg) > CENTER_THRESHOLD:
             continue
@@ -278,11 +278,11 @@ def start():
         #xycar angle setting capa: -50 ~50
         steer_angle = -angle * 0.4
         print("angle :", angle)
-      
+
         draw_steer(frame, steer_angle)
         cv2.imshow("frame",frame)
         # steer_angle 또는 angle  제어에 보내기
-        
+
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             #out.release() # s
@@ -290,9 +290,9 @@ def start():
         pub.publish(steer_angle)
         print("11111111111")
         rate.sleep()
-        #rospy.spin()  # spin 하면 멈춤. 
-        
-        
+        #rospy.spin()  # spin 하면 멈춤.
+
+
 
 if __name__ == '__main__':
     print("00000")

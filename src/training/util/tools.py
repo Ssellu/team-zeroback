@@ -597,7 +597,6 @@ def aug_dataset(cfg_param):
         get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.GaussianBlur, sigma=0.25),
         get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.GaussianBlur, sigma=0.50),
         get_transformations(cfg_param=cfg_param, is_train=True, augmenter=iaa.GaussianBlur, sigma=1.00),
-
     ]
     lst = [Yolodata(is_train=True,
                     transform=my_transform[n],
