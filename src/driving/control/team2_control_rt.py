@@ -24,6 +24,11 @@ class MainControl:
     UTURN_SIGN = 4
     TRAFFIC_LIGHT_SIGN = 5
 
+    SPEED = 3
+    DURATION = 30 * SPEED
+    ELAPSED_TIME = -1
+
+
     def __init__(self) -> None:
 
         rospy.init_node("Control",anonymous=False)
@@ -38,6 +43,7 @@ class MainControl:
         self.obj_bbox = None
 
         self.is_green = True
+        self.stop_is_done = False
 
     def object_detector_callback(self, msg):
         print("!!! object_detector_callback !!!")
@@ -91,17 +97,44 @@ class MainControl:
         return -(320 - (l + r) / 2) * 0.4
 
     def _drive(self):
-        if self.class_no == MainControl.CROSSWALK_SIGN or self.class_no == MainControl.STOP_SIGN:
+        if not self.stop_is_done and self.class_no == MainControl.CROSSWALK_SIGN or self.class_no == MainControl.STOP_SIGN:
+            self.status = 'normal'
             if self.good_distance_to_stop:
                 self._stop()
+                time.sleep(5)
+                self.class_no = MainControl.NO_OBJECT
+                self.stop_is_done = True
         elif self.class_no == MainControl.LEFT_SIGN:
-            self._go_left()
+            self.ELAPSED_TIME = time.time()
+            self.status = 'left'
+            self.stop_is_done = False
         elif self.class_no == MainControl.RIGHT_SIGN:
-            self._go_right()
+            self.ELAPSED_TIME = time.time()
+            self.status = 'right'
+            self.stop_is_done = False
         elif self.class_no == MainControl.TRAFFIC_LIGHT_SIGN:
-            while not self.is_green:
+            self.status = 'normal'
+
+            while self.good_distance_to_stop and not self.is_green:
                 self._stop()
-        self._go()
+            self._go()
+            self.stop_is_done = False
+
+        if self.ELAPSED_TIME != -1 and (time.time() - self.ELAPSED_TIME  >  self.DURATION):
+            self.status = 'normal'
+            self.stop_is_done = False
+            self.ELAPSED_TIME = -1
+
+        elif self.status == 'right':
+            self._go_right()
+        elif self.status == 'left':
+            self._go_left()
+
+        if self.status == 'normal':
+            self._go()
+
+        if self.lpos == 0 or self.rpos == 0:
+            self._go()
 
     def run(self):
         while True:
