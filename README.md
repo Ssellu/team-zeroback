@@ -231,9 +231,13 @@ The directory structures like below.
 
 
 이미지 전처리 전
+
+
 ![image](https://user-images.githubusercontent.com/76178551/216765415-25868638-0ee7-48e8-ab19-7a570829c0d4.png)
 
 이미지 전처리 후 (noise 제거)
+
+
 ![image](https://user-images.githubusercontent.com/76178551/216765417-442dc1f9-23d0-408d-896c-d2185c2d83fc.png)
 
 
@@ -246,17 +250,25 @@ y = ax + b에서 기울기 a와  y절편 b가 0이 아닌 모든 라인들에 �
  
 
 기울기 변화 전
+
+
 ![image](https://user-images.githubusercontent.com/76178551/216765427-77468f43-d75c-4b23-91cd-a1a0e0b73166.png)
 
 기울기 변화 후
+
+
 ![image](https://user-images.githubusercontent.com/76178551/216765435-de25ff3e-aa56-406d-aacb-7afa700a8416.png)
 
+
+
 미해결
+
 3) 차선 인식 상에서의 문제
 왼쪽으로 가는 곡선 구간에서 차선이 아닌 벽의 하단 부분 검정색 영향을 받아 차선을 잡는 line이 튀는 경향이 있었습니다. roi영역을 줄이면 특정 부분은 개선이 될 수 있겠지만, 전반적으로  houghlinesP함수를 사용해 sample 좌표값들의 개수도 줄어들어 차선을 제대로 인식하는 확률 또한 낮아지게 됩니다. 즉 차선 인식의 안전성에 영향이 가기에, 자이카를 이용해 여러 테스트를 하여 문제가 없으면 그대로 가고, 문제가 있다면 roi 영역을 줄여보는 테스트를 할 예정입니다.
 -> 잠깐 차선 인식이 조금 벗어나기에 문제가 없다면 그대로 갈 예정입니다.
 
 ROI Width 크기 변경 전/후
+
 ![image](https://user-images.githubusercontent.com/76178551/216765441-312610d8-3ab6-4ca6-bfc5-2b121f651bda.png)
 1256 번째 이미지 기준
 
@@ -264,9 +276,11 @@ ROI Width 크기 변경 전/후
 
 미해결
 ㄱ) 다른 구간의 차선을 인식하는 문제.
+
 ![image](https://user-images.githubusercontent.com/76178551/216765471-7e27c00c-3165-4a98-a458-cf6fe7966623.png)
 
 ㄴ) 표지판의 검정 영역을 인식하는 문제
+
 ![image](https://user-images.githubusercontent.com/76178551/216765477-28b6630b-6faa-405f-9c3e-e2b0e9d66a1c.png)
 -> 상기에 언급한 벽 검정 부분을 인식하는 문제의 해결방안처럼 ROI 영역을 줄이거나 또는 파이썬 기능인 nonZero함수를 통해 기준이 되는 검정색의 값의 개수가 몇 개 이상이면 차선으로 인식하는 방법으로 해결해 볼 수 있을 것 같습니다. 
 
@@ -275,10 +289,12 @@ ROI Width 크기 변경 전/후
 추가로, 검정선 차선이지만 어떤 경우 전등에 의해 연하게 색 값이 연하게 나오는 경우 차선 인식을 못하는 것 같습니다. 이에 임계값을 통한 이진화 작업을 검토하여 테스트할 수도 있을 것 같습니다.  
 
 ㄷ) 하나의 차선만 인식하는 문제 ( 이 때는 인식 못한 차선을 Width -1 값으로 보내기로 했습니다.)
+
 ![image](https://user-images.githubusercontent.com/76178551/216765498-81f7362e-1fdf-49e3-9ecb-76db9772ae98.png)
 
 
 ㄹ) 두 차선을 모두 인식하지 못하는 문제, 쭉 가다가 가야할 차선이 아닌 다른 차선으로 인식하면? 차선을 벗어 날 수 있습니다.
+
 ![image](https://user-images.githubusercontent.com/76178551/216765491-00aba63f-10f9-4d41-809b-37d29574bc63.png)
 
 이 상황에서 어떻게 해야할지 고민중에 있습니다. 이전의 우측 곡선 주행시의 차선 정보를 적용하는 방법이 있을 수 있으며, 알고리즘을 적용 및 향후 기회가 되면 테스트 할 예정 입니다.
