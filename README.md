@@ -284,7 +284,7 @@ ROI Width 크기 변경 전/후 (1256번째 이미지 기준)
 
   ㄴ) 표지판의 검정 영역을 인식하는 문제
 
-![image](https://user-images.githubusercontent.com/76178551/216765477-28b6630b-6faa-405f-9c3e-e2b0e9d66a1c.png)
+![image](https://user-images.githubusercontent.com/76178551/216770705-3464ac4f-d32a-40ba-b5bd-03e2e9a079f9.png)
 
 
 -> 상기에 언급한 벽 검정 부분을 인식하는 문제의 해결방안처럼 ROI 영역을 줄이거나 또는 파이썬 기능인 nonZero함수를 통해 기준이 되는 검정색의 값의 개수가 몇 개 이상이면 차선으로 인식하는 방법으로 해결해 볼 수 있을 것 같습니다. 
