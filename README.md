@@ -235,6 +235,7 @@ The directory structures like below.
 
 ![image](https://user-images.githubusercontent.com/76178551/216765415-25868638-0ee7-48e8-ab19-7a570829c0d4.png)
 
+
 이미지 전처리 후 (noise 제거)
 
 
@@ -254,6 +255,7 @@ y = ax + b에서 기울기 a와  y절편 b가 0이 아닌 모든 라인들에 �
 
 ![image](https://user-images.githubusercontent.com/76178551/216765427-77468f43-d75c-4b23-91cd-a1a0e0b73166.png)
 
+
 기울기 변화 후
 
 
@@ -270,7 +272,8 @@ y = ax + b에서 기울기 a와  y절편 b가 0이 아닌 모든 라인들에 �
 ROI Width 크기 변경 전/후
 
 ![image](https://user-images.githubusercontent.com/76178551/216765441-312610d8-3ab6-4ca6-bfc5-2b121f651bda.png)
-1256 번째 이미지 기준
+
+
 
 4) 갈림길 영역
 
@@ -279,9 +282,12 @@ ROI Width 크기 변경 전/후
 
 ![image](https://user-images.githubusercontent.com/76178551/216765471-7e27c00c-3165-4a98-a458-cf6fe7966623.png)
 
+
 ㄴ) 표지판의 검정 영역을 인식하는 문제
 
 ![image](https://user-images.githubusercontent.com/76178551/216765477-28b6630b-6faa-405f-9c3e-e2b0e9d66a1c.png)
+
+
 -> 상기에 언급한 벽 검정 부분을 인식하는 문제의 해결방안처럼 ROI 영역을 줄이거나 또는 파이썬 기능인 nonZero함수를 통해 기준이 되는 검정색의 값의 개수가 몇 개 이상이면 차선으로 인식하는 방법으로 해결해 볼 수 있을 것 같습니다. 
 
  nonZero 함수 이용 시 x값이 0부터가 아닌 Width/2부터 시작을 해야 위에 표지판 검정 부분을 오인식하는 문제가 없을 것입니다. 다만 전 구간의 상황을 감안해 적용해볼 예정입니다.
@@ -296,6 +302,7 @@ ROI Width 크기 변경 전/후
 ㄹ) 두 차선을 모두 인식하지 못하는 문제, 쭉 가다가 가야할 차선이 아닌 다른 차선으로 인식하면? 차선을 벗어 날 수 있습니다.
 
 ![image](https://user-images.githubusercontent.com/76178551/216765491-00aba63f-10f9-4d41-809b-37d29574bc63.png)
+
 
 이 상황에서 어떻게 해야할지 고민중에 있습니다. 이전의 우측 곡선 주행시의 차선 정보를 적용하는 방법이 있을 수 있으며, 알고리즘을 적용 및 향후 기회가 되면 테스트 할 예정 입니다.
 
