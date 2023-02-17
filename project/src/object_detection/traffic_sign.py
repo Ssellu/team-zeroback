@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Author: Sera Lee <ssellu.lee@gmail.com>
+# Last Modified: 18 Feb 2023
+
 import cv2
 import numpy as np
 
@@ -7,9 +13,9 @@ class TrafficLight():
         self.is_debug = is_debug
 
     def is_green(self, path: str, xywh: np.ndarray) -> bool:
-        image, opencv_xywh = self.crop_image_blurred_(path, xywh)
+        image, opencv_xywh = self._crop_image_blurred(path, xywh)
 
-        _, _, v = self._get_hsv_(image)
+        _, _, v = self._get_hsv(image)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         circles = cv2.HoughCircles(
             image, cv2.HOUGH_GRADIENT, 1, 20, param1=25, param2=25, minRadius=0, maxRadius=30)
@@ -45,7 +51,7 @@ class TrafficLight():
 
         return False
 
-    def crop_image_blurred_(self, path, xywh):
+    def _crop_image_blurred(self, path, xywh):
         # for detect circles
         min_x, min_y, width, height = xywh
 
@@ -62,7 +68,7 @@ class TrafficLight():
         image = cv2.GaussianBlur(image, (5, 5), 0)
         return image, (start_x, start_y, width_640, height_480)
 
-    def _get_hsv_(self, image):
+    def _get_hsv(self, image):
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         h, s, v = cv2.split(hsv)
         if self.is_debug:
@@ -76,19 +82,22 @@ class StopLine():
 
     def __init__(self, is_debug: bool = False, roi=None) -> None:
         self.is_debug = is_debug
-        self.calibration_matrix = np.array([[422.037858, 0.0, 245.895397], [0.0, 435.5899734, 163.625535], [0.0, 0.0, 1.0]])
-        self.calibration_coefficients = np.array([-0.302321,0.071616, -0.002477, -0.000052, 0.00000])
+        self.calibration_matrix = np.array([[422.037858, 0.0, 245.895397], [
+                                           0.0, 435.5899734, 163.625535], [0.0, 0.0, 1.0]])
+        self.calibration_coefficients = np.array(
+            [-0.302321, 0.071616, -0.002477, -0.000052, 0.00000])
         self.roi = roi
         self.hstack_cat = []
 
-    def white_(self, image=None, path=None, roi=None):
-        original = image if image is not None else cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    def _get_white(self, image=None, path=None, roi=None):
+        original = image if image is not None else cv2.imread(
+            path, cv2.IMREAD_UNCHANGED)
         h, l, s = cv2.split(cv2.cvtColor(original, cv2.COLOR_BGR2HLS))
         _, h = cv2.threshold(h, 125, 255, cv2.THRESH_BINARY_INV)
         _, l = cv2.threshold(l, 125, 255, cv2.THRESH_BINARY_INV)
         _, s = cv2.threshold(s, 125, 255, cv2.THRESH_BINARY_INV)
 
-        if self.is_debug and False:
+        if self.is_debug:
             cv2.imshow('original', original)
             cv2.imshow('H', h)
             cv2.imshow('L', l)
@@ -97,14 +106,14 @@ class StopLine():
             cv2.destroyAllWindows()
         return l
 
-    def calibrate_image_(self, frame, mtx, dist, cal_mtx, cal_roi):
+    def _calibrate_image(self, frame, mtx, dist, cal_mtx, cal_roi):
         tf_image = cv2.undistort(frame, mtx, dist, None, cal_mtx)
         x, y, w, h = cal_roi
         tf_image = tf_image[y:y+h, x:x+w]
         return cv2.resize(tf_image, (frame.shape[1], frame.shape[0]))
 
     def is_stopline_in_roi(self, path: str = None, roi=None):
-        image_l = self.white_(path=path, roi=roi)
+        image_l = self._get_white(path=path, roi=roi)
         cal_mtx, cal_roi = cv2.getOptimalNewCameraMatrix(
             self.calibration_matrix,
             self.calibration_coefficients,
@@ -113,38 +122,40 @@ class StopLine():
             (480, 640)
         )
 
-
         if self.is_debug:
-            cal_image = self.calibrate_image_(
-            image_l,
-            self.calibration_matrix,
-            self.calibration_coefficients,
-            cal_mtx,
-            cal_roi
+            cal_image = self._calibrate_image(
+                image_l,
+                self.calibration_matrix,
+                self.calibration_coefficients,
+                cal_mtx,
+                cal_roi
             )
             self.hstack_cat = np.hstack((image_l, cal_image))
-            meet_stopline = self.detect_stopline_(cal_image=cal_image, low_threshold_value=150)
+            meet_stopline = self._detect_stopline(
+                cal_image=cal_image, low_threshold_value=150)
             print('!!! meet_stopline : {}'.format(meet_stopline))
             cv2.imshow('calibration', cal_image)
             cv2.waitKey()
             cv2.destroyAllWindows()
 
-    def detect_stopline_(self, cal_image, low_threshold_value) -> bool:
-        stopline_roi, _, _ = self.set_roi_(cal_image, 250, 330, 10)
-        image = self.image_processing_(stopline_roi, low_threshold_value)
+    def _detect_stopline(self, cal_image, low_threshold_value) -> bool:
+        stopline_roi, _, _ = self._set_roi(cal_image, 250, 330, 10)
+        image = self._image_processing(stopline_roi, low_threshold_value)
         if cv2.countNonZero(image) > 1000:
             return True
         return False
 
-    def set_roi_(self, frame, x_len, start_y, offset_y):
+    def _set_roi(self, frame, x_len, start_y, offset_y):
         _, width = frame.shape
         start_x = int(width/2 - (x_len/2))
         end_x = int(width - start_x)
         return frame[start_y:start_y + offset_y, start_x:end_x], start_x, start_y
 
-    def image_processing_(self, image, low_threshold_value):
-        _, lane = cv2.threshold(image, low_threshold_value, 255, cv2.THRESH_BINARY)
+    def _image_processing(self, image, low_threshold_value):
+        _, lane = cv2.threshold(
+            image, low_threshold_value, 255, cv2.THRESH_BINARY)
         return lane
+
 
 if __name__ == '__main__':
 
@@ -155,5 +166,6 @@ if __name__ == '__main__':
         print('result : {}'.format(tl.is_green(
             path='dataset/image_sets/img (141).png', xywh=ts)))
     if True:
+        # Test Case 2
         sl = StopLine(is_debug=True)
         sl.is_stopline_in_roi(path='dataset/image_sets/img (141).png')
