@@ -1,5 +1,4 @@
 <launch>
-  <include file="$(find xycar_motor)/launch/xycar_motor.launch" />
   <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
     <param name="video_device" value="/dev/video0" />
     <param name="image_width" value="640" />
@@ -12,20 +11,23 @@
   </node>
    
   <node name="lane_detector" 
-    pkg="team2_pjt" 
-    type="team2_lane_detection_cvBridge_rt.py" 
+    pkg="project" 
+    type="lane_detection.py" 
+    args="/src/lane_detection/lane_detection.py"
     respawn="false" 
     output="screen"/>
 
   <node name="control" 
-    pkg="team2_pjt" 
-    type="team2_control_rt.py" 
+    pkg="project" 
+    type="control.py"
+    args="/src/control/control.py" 
     respawn="false" 
     output="screen"/>
 
   <node name="object_detector" 
-    pkg="team2_pjt" 
+    pkg="project" 
     type="trt_detection.py" 
+    args="/src/object_detection/trt_detection.py"
     respawn="false" 
     output="screen"/>
   
